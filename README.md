@@ -259,8 +259,17 @@ iniciar_monitor.bat     mantém o monitor rodando e grava o log
 
 ## Contribuindo
 
-Sugestões e correções são bem-vindas: abra uma *issue* ou um *pull request*. Se você usa um indicador com formato de peso diferente, compartilhar um exemplo do texto bruto ajuda a suportar mais modelos.
+Sugestões e correções são bem-vindas: abra uma *issue* ou um *pull request*. Ao enviar uma contribuição, você concorda que ela seja incorporada ao projeto sob a mesma licença. Se você usa um indicador com formato de peso diferente, compartilhar um exemplo do texto bruto ajuda a suportar mais modelos.
 
 ## Licença
 
-[MIT](LICENSE)
+Copyright (c) 2026 Julio Henrique Copetti. Distribuído sob a [PolyForm Internal Use License 1.0.0](LICENSE).
+
+Resumo, sem valor jurídico (o texto do arquivo [LICENSE](LICENSE) é o que vale):
+
+- ✅ **Pode** baixar, instalar e usar nas operações internas da sua empresa.
+- ✅ **Pode** adaptar e modificar o código para uso interno.
+- ❌ **Não pode** redistribuir, revender, sublicenciar nem publicar o código ou versões modificadas.
+- ❌ **Não pode** usar fora das operações internas da própria empresa (por exemplo, oferecer como produto ou serviço a terceiros).
+
+Para outros usos, como incluir em um produto comercial ou distribuir para clientes, entre em contato pelo GitHub: [@JulioCopetti01](https://github.com/JulioCopetti01).

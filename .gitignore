@@ -1,0 +1,20 @@
+# Configuração real de cada instalação (IPs, portas e senha).
+# Versione apenas o config.example.json.
+config.json
+config.json.bak
+config.json.tmp
+
+# Logo da empresa de quem instala
+static/logo.png
+
+# Logs gerados pelo iniciar_monitor.bat
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Tutorial pessoal de publicação (não faz parte do projeto)
+TUTORIAL_PUBLICACAO.md

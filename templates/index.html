@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ aparencia.empresa }} - {{ aparencia.titulo }}</title>
+
+    <!-- Importa o CSS da pasta static -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <!-- Cores da marca, definidas em "aparencia" no config.json -->
+    <style>
+        :root {
+        {%- for nome, valor in cores_marca.items() %}
+            --{{ nome }}: {{ valor }};
+        {%- endfor %}
+        }
+    </style>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="aviso-sem-comunicacao" id="aviso-sem-comunicacao" role="alert">
+        ⚠ MONITOR SEM COMUNICAÇÃO COM O SERVIDOR — dados exibidos podem estar desatualizados
+        <span class="aviso-tempo" id="aviso-tempo"></span>
+    </div>
+
+    <header class="cabecalho">
+        {% if logo_url %}
+        <img class="logo" alt="{{ aparencia.empresa }}" src="{{ logo_url }}">
+        {% else %}
+        <span class="logo-texto">{{ aparencia.empresa }}</span>
+        {% endif %}
+
+        <h1 class="titulo">
+            <small>{{ aparencia.subtitulo }}</small>
+            {{ aparencia.titulo }}
+        </h1>
+
+        <div class="resumo">
+            <span class="resumo-item resumo-online"><strong id="total-online">0</strong> online</span>
+            <span class="resumo-item resumo-offline"><strong id="total-offline">0</strong> offline</span>
+            <span class="resumo-item resumo-atrasado" id="resumo-atrasado" hidden><strong id="total-atrasado">0</strong> atrasado</span>
+        </div>
+
+        <div class="relogio">
+            <div class="relogio-hora" id="relogio-hora">--:--:--</div>
+            <div class="relogio-data" id="relogio-data"></div>
+        </div>
+    </header>
+    <div class="faixa-marca"></div>
+
+    <div class="container">
+        <div class="grid-balancas" id="grid-balancas">
+            <!-- Os cards serão renderizados dinamicamente pelo JavaScript -->
+        </div>
+    </div>
+
+    <script>
+        // Sem resposta do servidor por mais que isso => aviso de sem comunicação
+        const LIMITE_SEM_COMUNICACAO_MS = 10000;
+        // Balança sem nova verificação por mais que isso => card ATRASADO
+        // (uma verificação com falha pode levar ~8s entre timeouts)
+        const LIMITE_ATRASO_S = 20;
+
+        let ultimoSucesso = Date.now();
+        let requisicaoEmAndamento = false;
+        let versaoMontada = null;
+
+        // Elementos da tela por chave da balança ("local | nome") e por local
+        let cardsPorChave = new Map();
+        let linhasPorLocal = new Map();
+
+        async function atualizarBalancas() {
+            // Não empilha requisições se o servidor estiver lento
+            if (requisicaoEmAndamento) return;
+            requisicaoEmAndamento = true;
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+
+            try {
+                const response = await fetch('/api/balancas', {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                if (!response.ok) return;
+
+                const { servidor_hora, versao_config, balancas } = await response.json();
+                ultimoSucesso = Date.now();
+                verificarComunicacao();
+
+                // Reconstrói a tela só quando a configuração muda (painel /admin)
+                if (versao_config !== versaoMontada) {
+                    montarEstrutura(balancas);
+                    versaoMontada = versao_config;
+                }
+
+                const totais = { ONLINE: 0, OFFLINE: 0, ATRASADO: 0 };
+                const porLocal = {};
+
+                for (const [chave, dados] of Object.entries(balancas)) {
+                    const card = cardsPorChave.get(chave);
+                    if (!card) continue;
+
+                    const atrasado = dados.ultima_verificacao !== null
+                        && servidor_hora - dados.ultima_verificacao > LIMITE_ATRASO_S;
+
+                    let statusTexto = dados.status;
+                    let statusClass = dados.status === 'ONLINE' ? 'status-online' : 'status-offline';
+                    if (atrasado) {
+                        statusTexto = 'ATRASADO';
+                        statusClass = 'status-atrasado';
+                    }
+                    totais[statusTexto]++;
+
+                    if (!porLocal[dados.local]) porLocal[dados.local] = { online: 0, total: 0 };
+                    const local = porLocal[dados.local];
+                    local.total++;
+                    if (statusTexto === 'ONLINE') local.online++;
+
+                    // Atualiza apenas o conteúdo do card sem piscar a tela
+                    card.className = `card-balanca ${statusClass}`;
+                    card.querySelector('.status-texto').textContent = statusTexto;
+                    card.querySelector('.peso').textContent = dados.peso;
+                    card.querySelector('.hora-val').textContent = dados.hora;
+                }
+
+                for (const [local, { online, total }] of Object.entries(porLocal)) {
+                    const linha = linhasPorLocal.get(local);
+                    const situacao = online === total ? 'local-ok' : online === 0 ? 'local-falha' : 'local-parcial';
+                    linha.className = `linha-local ${situacao}`;
+                    linha.querySelector('.contagem-local').textContent = `${online}/${total} online`;
+                }
+
+                document.getElementById('total-online').textContent = totais.ONLINE;
+                document.getElementById('total-offline').textContent = totais.OFFLINE;
+                document.getElementById('total-atrasado').textContent = totais.ATRASADO;
+                document.getElementById('resumo-atrasado').hidden = totais.ATRASADO === 0;
+            } catch (err) {
+                console.error("Erro ao buscar balanças:", err);
+            } finally {
+                clearTimeout(timeout);
+                requisicaoEmAndamento = false;
+            }
+        }
+
+        // Mostra o aviso quando o servidor para de responder, para a TV
+        // não continuar exibindo o último estado como se estivesse atual
+        function verificarComunicacao() {
+            const semResposta = Date.now() - ultimoSucesso;
+            const semComunicacao = semResposta > LIMITE_SEM_COMUNICACAO_MS;
+
+            document.body.classList.toggle('sem-comunicacao', semComunicacao);
+            document.getElementById('aviso-tempo').textContent = semComunicacao
+                ? `(última resposta há ${Math.round(semResposta / 1000)}s)`
+                : '';
+        }
+
+        // Monta uma linha por local, na ordem definida no painel /admin, com
+        // o título e o nome do local à esquerda e as balanças ao lado
+        function montarEstrutura(balancas) {
+            const locais = new Map();
+            for (const [chave, dados] of Object.entries(balancas)) {
+                if (!locais.has(dados.local)) locais.set(dados.local, []);
+                locais.get(dados.local).push([chave, dados]);
+            }
+
+            const grid = document.getElementById('grid-balancas');
+            grid.innerHTML = '';
+            cardsPorChave = new Map();
+            linhasPorLocal = new Map();
+            let maxCards = 1;
+
+            for (const [local, itens] of locais) {
+                maxCards = Math.max(maxCards, itens.length);
+
+                const linha = document.createElement('section');
+                linha.className = 'linha-local';
+                linha.innerHTML = `
+                    <div class="rotulo-local">
+                        <span class="titulo-local"></span>
+                        <span class="nome-local"></span>
+                        <span class="contagem-local"></span>
+                    </div>
+                `;
+                const titulo = itens[0][1].titulo;
+                linha.querySelector('.titulo-local').textContent = titulo;
+                linha.querySelector('.titulo-local').hidden = !titulo;
+                linha.querySelector('.nome-local').textContent = local;
+                linhasPorLocal.set(local, linha);
+
+                for (const [chave, dados] of itens) {
+                    const card = document.createElement('div');
+                    card.className = 'card-balanca';
+                    card.title = chave;
+                    cardsPorChave.set(chave, card);
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="tipo"></span>
+                            <div class="status-badge">
+                                <span class="status-dot"></span>
+                                <span class="status-texto"></span>
+                            </div>
+                        </div>
+                        <div class="ip"></div>
+                        <div class="peso-container">
+                            <div class="peso"></div>
+                        </div>
+                        <div class="hora">
+                            Última leitura: <span class="hora-val"></span>
+                        </div>
+                    `;
+                    card.querySelector('.tipo').textContent = dados.nome;
+                    card.querySelector('.ip').textContent = `${dados.ip}:${dados.porta}`;
+                    linha.appendChild(card);
+                }
+
+                grid.appendChild(linha);
+            }
+
+            grid.dataset.colunas = maxCards;
+            ajustarGrade();
+        }
+
+        // Faz todos os locais caberem na tela, sem scroll: uma linha por
+        // local, com fontes proporcionais ao tamanho de cada card
+        function ajustarGrade() {
+            const grid = document.getElementById('grid-balancas');
+            const linhas = grid.children.length;
+            const colunas = Number(grid.dataset.colunas) || 1;
+            const propriedades = ['grid-template-rows', '--colunas-cards', '--largura-rotulo',
+                '--fonte-tipo', '--fonte-ip', '--fonte-peso', '--fonte-hora', '--fonte-local'];
+
+            // Tela estreita (celular): usa a lista com scroll do CSS
+            if (!linhas || window.innerWidth <= 700) {
+                propriedades.forEach(p => grid.style.removeProperty(p));
+                return;
+            }
+
+            const gap = parseFloat(getComputedStyle(grid).rowGap) || 0;
+            const larguraRotulo = Math.max(150, Math.min(260, grid.clientWidth * 0.13));
+            const w = (grid.clientWidth - larguraRotulo - gap * colunas) / colunas;
+            const h = (grid.clientHeight - gap * (linhas - 1)) / linhas;
+
+            grid.style.gridTemplateRows = `repeat(${linhas}, minmax(0, 1fr))`;
+            grid.style.setProperty('--colunas-cards', colunas);
+            grid.style.setProperty('--largura-rotulo', `${larguraRotulo}px`);
+
+            // "123.456 kg" precisa caber na largura do card
+            grid.style.setProperty('--fonte-peso', `${Math.min(h * 0.28, (w - 32) / 6.5)}px`);
+            grid.style.setProperty('--fonte-tipo', `${Math.max(12, Math.min(h * 0.12, w / 16))}px`);
+            grid.style.setProperty('--fonte-ip', `${Math.max(11, Math.min(h * 0.095, w / 20))}px`);
+            grid.style.setProperty('--fonte-hora', `${Math.max(10, Math.min(h * 0.075, w / 26))}px`);
+            grid.style.setProperty('--fonte-local', `${Math.max(13, Math.min(h * 0.14, larguraRotulo / 10))}px`);
+        }
+
+        window.addEventListener('resize', ajustarGrade);
+
+        function atualizarRelogio() {
+            const agora = new Date();
+            document.getElementById('relogio-hora').textContent = agora.toLocaleTimeString('pt-BR');
+            document.getElementById('relogio-data').textContent = agora.toLocaleDateString('pt-BR', {
+                weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
+            });
+        }
+
+        atualizarRelogio();
+        setInterval(atualizarRelogio, 1000);
+
+        // Executa imediatamente e depois repete a cada 1.5s
+        atualizarBalancas();
+        setInterval(atualizarBalancas, 1500);
+        setInterval(verificarComunicacao, 1000);
+    </script>
+</body>
+
+</html>

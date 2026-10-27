@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ aparencia.empresa }} - Cadastro de Balanças</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+
+    <!-- Cores da marca, definidas em "aparencia" no config.json -->
+    <style>
+        :root {
+        {%- for nome, valor in cores_marca.items() %}
+            --{{ nome }}: {{ valor }};
+        {%- endfor %}
+        }
+    </style>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="pagina-admin">
+
+    <header class="cabecalho">
+        {% if logo_url %}
+        <img class="logo" alt="{{ aparencia.empresa }}" src="{{ logo_url }}">
+        {% else %}
+        <span class="logo-texto">{{ aparencia.empresa }}</span>
+        {% endif %}
+
+        <h1 class="titulo">
+            <small>{{ aparencia.subtitulo }}</small>
+            Cadastro de Balanças
+        </h1>
+
+        <a class="btn btn-secundario" href="/" target="_blank">📺 Abrir monitor</a>
+    </header>
+    <div class="faixa-marca"></div>
+
+    <main class="admin-conteudo">
+        <div class="barra-acoes">
+            <div>
+                <h2>Locais e balanças</h2>
+                <p class="resumo-cadastro" id="resumo-cadastro">Carregando...</p>
+            </div>
+            <div class="barra-botoes">
+                <button type="button" class="btn btn-secundario" onclick="abrirModalLocal()">+ Novo local</button>
+                <button type="button" class="btn btn-primario" onclick="abrirModalBalanca()">+ Nova balança</button>
+            </div>
+        </div>
+
+        <div id="lista-locais"></div>
+    </main>
+
+    <!-- ===================== MODAL: BALANÇA ===================== -->
+    <div class="modal-fundo" id="modal-balanca" hidden>
+        <form class="modal" id="form-balanca" novalidate>
+            <div class="modal-cabecalho">
+                <h3 id="modal-balanca-titulo">Nova balança</h3>
+                <button type="button" class="modal-fechar" onclick="fecharModais()" aria-label="Fechar">×</button>
+            </div>
+
+            <div class="modal-corpo">
+                <ul class="erros-modal" id="erros-balanca" hidden></ul>
+
+                <label class="campo">
+                    <span>Local</span>
+                    <select id="campo-local"></select>
+                </label>
+
+                <div class="grupo-novo-local" id="grupo-novo-local" hidden>
+                    <label class="campo">
+                        <span>Nome do novo local</span>
+                        <input type="text" id="campo-novo-local" placeholder="Ex.: Unidade Centro" maxlength="80">
+                    </label>
+                    <label class="campo">
+                        <span>Título <em>(opcional, aparece acima do nome do local)</em></span>
+                        <input type="text" id="campo-novo-titulo" placeholder="Ex.: Região Norte" maxlength="80">
+                    </label>
+                </div>
+
+                <label class="campo">
+                    <span>Nome da balança</span>
+                    <input type="text" id="campo-nome" placeholder="Ex.: Entrada, Saída, Backup" maxlength="60">
+                </label>
+
+                <div class="linha-campos">
+                    <label class="campo">
+                        <span>IP</span>
+                        <input type="text" id="campo-ip" placeholder="Ex.: 192.168.0.50" maxlength="253"
+                            autocomplete="off" spellcheck="false">
+                    </label>
+                    <label class="campo">
+                        <span>Porta</span>
+                        <input type="number" id="campo-porta" placeholder="9000" min="1" max="65535">
+                    </label>
+                </div>
+
+                <label class="campo">
+                    <span>Leitura do peso</span>
+                    <select id="campo-padrao">
+                        <option value="6_digitos">6 primeiros dígitos (padrão)</option>
+                        <option value="completo">Número completo</option>
+                    </select>
+                </label>
+
+                <div class="area-teste">
+                    <button type="button" class="btn btn-secundario" id="botao-testar" onclick="testarConexao()">
+                        🔌 Testar conexão
+                    </button>
+                    <div class="resultado-teste" id="resultado-teste" hidden></div>
+                </div>
+            </div>
+
+            <div class="modal-rodape">
+                <button type="button" class="btn btn-secundario" onclick="fecharModais()">Cancelar</button>
+                <button type="submit" class="btn btn-primario" id="botao-salvar-balanca">Salvar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===================== MODAL: LOCAL ===================== -->
+    <div class="modal-fundo" id="modal-local" hidden>
+        <form class="modal modal-pequeno" id="form-local" novalidate>
+            <div class="modal-cabecalho">
+                <h3 id="modal-local-titulo">Novo local</h3>
+                <button type="button" class="modal-fechar" onclick="fecharModais()" aria-label="Fechar">×</button>
+            </div>
+
+            <div class="modal-corpo">
+                <ul class="erros-modal" id="erros-local" hidden></ul>
+
+                <label class="campo">
+                    <span>Nome do local</span>
+                    <input type="text" id="campo-local-nome" placeholder="Ex.: Unidade Centro" maxlength="80">
+                </label>
+                <label class="campo">
+                    <span>Título <em>(opcional, aparece acima do nome do local)</em></span>
+                    <input type="text" id="campo-local-titulo" placeholder="Ex.: Região Norte" maxlength="80">
+                </label>
+            </div>
+
+            <div class="modal-rodape">
+                <button type="button" class="btn btn-secundario" onclick="fecharModais()">Cancelar</button>
+                <button type="submit" class="btn btn-primario" id="botao-salvar-local">Salvar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===================== MODAL: CONFIRMAÇÃO ===================== -->
+    <div class="modal-fundo" id="modal-confirmar" hidden>
+        <div class="modal modal-pequeno">
+            <div class="modal-cabecalho">
+                <h3>Confirmar exclusão</h3>
+            </div>
+            <div class="modal-corpo">
+                <p id="texto-confirmar"></p>
+            </div>
+            <div class="modal-rodape">
+                <button type="button" class="btn btn-secundario" id="botao-confirmar-nao">Cancelar</button>
+                <button type="button" class="btn btn-perigo" id="botao-confirmar-sim">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="aviso-toast" id="aviso-toast" hidden></div>
+
+    <script>
+        const NOVO_LOCAL = '__novo__';
+
+        let config = { locais: [] };     // configuração salva no servidor
+        let versao = null;               // versão carregada (evita sobrescrever outra pessoa)
+        let statusAoVivo = {};           // estado atual das balanças, vindo do monitor
+        let edicaoBalanca = null;        // { local, balanca } em edição, ou null se nova
+        let edicaoLocal = null;          // índice do local em edição, ou null se novo
+
+        // ---------- Utilidades ----------
+
+        function el(tag, atributos = {}, ...filhos) {
+            const elemento = document.createElement(tag);
+            for (const [nome, valor] of Object.entries(atributos)) {
+                if (valor === null || valor === undefined) continue;
+                if (nome === 'class') elemento.className = valor;
+                else if (nome.startsWith('on')) elemento.addEventListener(nome.slice(2), valor);
+                else elemento.setAttribute(nome, valor);
+            }
+            for (const filho of filhos) {
+                if (filho !== null && filho !== undefined) elemento.append(filho);
+            }
+            return elemento;
+        }
+
+        function copiar(objeto) {
+            return JSON.parse(JSON.stringify(objeto));
+        }
+
+        function chave(nomeLocal, nome) {
+            return `${nomeLocal} | ${nome}`;
+        }
+
+        function mostrarToast(texto) {
+            const toast = document.getElementById('aviso-toast');
+            toast.textContent = texto;
+            toast.hidden = false;
+            clearTimeout(mostrarToast.timer);
+            mostrarToast.timer = setTimeout(() => { toast.hidden = true; }, 3500);
+        }
+
+        function mostrarErros(idLista, erros) {
+            const lista = document.getElementById(idLista);
+            lista.replaceChildren(...erros.map(e => el('li', {}, e)));
+            lista.hidden = erros.length === 0;
+        }
+
+        // ---------- Comunicação com o servidor ----------
+
+        async function carregar() {
+            const resposta = await fetch('/api/admin/config', { cache: 'no-store' });
+            const dados = await resposta.json();
+            versao = dados.versao;
+            config = { locais: dados.locais };
+            renderizar();
+        }
+
+        // Grava a configuração inteira. Retorna a lista de erros (vazia se ok).
+        async function salvar(novaConfig, mensagem) {
+            let dados;
+            try {
+                const resposta = await fetch('/api/admin/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ versao, ...novaConfig }),
+                });
+                dados = await resposta.json();
+            } catch (err) {
+                return ['Não foi possível falar com o servidor. Verifique se o monitor está rodando.'];
+            }
+
+            if (!dados.ok) {
+                if (dados.conflito) {
+                    alert(dados.erros[0]);
+                    fecharModais();
+                    await carregar();
+                }
+                return dados.erros || ['Erro ao salvar.'];
+            }
+
+            versao = dados.versao;
+            config = novaConfig;
+            renderizar();
+            mostrarToast(mensagem);
+            return [];
+        }
+
+        async function atualizarStatus() {
+            try {
+                const resposta = await fetch('/api/balancas', { cache: 'no-store' });
+                const dados = await resposta.json();
+                statusAoVivo = dados.balancas;
+                document.querySelectorAll('[data-chave]').forEach(atualizarPill);
+            } catch (err) {
+                // O status ao vivo é só informativo; tenta de novo no próximo ciclo
+            }
+        }
+
+        function atualizarPill(pill) {
+            const dados = statusAoVivo[pill.dataset.chave];
+            if (!dados) {
+                pill.className = 'pill pill-neutro';
+                pill.textContent = 'aguardando';
+            } else if (dados.status === 'ONLINE') {
+                pill.className = 'pill pill-online';
+                pill.textContent = `ONLINE · ${dados.peso}`;
+            } else {
+                pill.className = 'pill pill-offline';
+                pill.textContent = 'OFFLINE';
+            }
+        }
+
+        // ---------- Lista de locais e balanças ----------
+
+        function renderizar() {
+            const lista = document.getElementById('lista-locais');
+            const totalBalancas = config.locais.reduce((s, l) => s + l.balancas.length, 0);
+            document.getElementById('resumo-cadastro').textContent =
+                `${config.locais.length} locais · ${totalBalancas} balanças cadastradas`;
+
+            if (config.locais.length === 0) {
+                lista.replaceChildren(el('div', { class: 'vazio' },
+                    'Nenhum local cadastrado. Clique em "+ Nova balança" para começar.'));
+                return;
+            }
+
+            lista.replaceChildren(...config.locais.map((local, iL) => {
+                const ultimoLocal = iL === config.locais.length - 1;
+
+                const cabecalho = el('div', { class: 'bloco-local-cabecalho' },
+                    el('div', { class: 'bloco-local-nome' },
+                        local.titulo ? el('small', {}, local.titulo) : null,
+                        el('strong', {}, local.nome),
+                    ),
+                    el('div', { class: 'acoes' },
+                        el('button', { type: 'button', class: 'btn btn-claro', onclick: () => abrirModalBalanca(iL) }, '+ Balança'),
+                        el('button', { type: 'button', class: 'btn btn-claro', onclick: () => abrirModalLocal(iL) }, 'Editar local'),
+                        el('button', { type: 'button', class: 'btn-icone btn-icone-claro', title: 'Subir', disabled: iL === 0 ? '' : null, onclick: () => moverLocal(iL, -1) }, '▲'),
+                        el('button', { type: 'button', class: 'btn-icone btn-icone-claro', title: 'Descer', disabled: ultimoLocal ? '' : null, onclick: () => moverLocal(iL, 1) }, '▼'),
+                        el('button', { type: 'button', class: 'btn btn-excluir', onclick: () => excluirLocal(iL) }, 'Excluir local'),
+                    ),
+                );
+
+                let corpo;
+                if (local.balancas.length === 0) {
+                    corpo = el('div', { class: 'vazio vazio-local' }, 'Nenhuma balança neste local. Ele não aparece no monitor até ter uma balança.');
+                } else {
+                    corpo = el('div', { class: 'tabela-rolagem' }, el('table', { class: 'tabela-balancas' },
+                        el('thead', {}, el('tr', {},
+                            el('th', {}, 'Nome da balança'), el('th', {}, 'IP'), el('th', {}, 'Porta'),
+                            el('th', {}, 'Leitura'), el('th', {}, 'Status agora'), el('th', { class: 'col-acoes' }, ''),
+                        )),
+                        el('tbody', {}, ...local.balancas.map((b, iB) => {
+                            const pill = el('span', { class: 'pill pill-neutro', 'data-chave': chave(local.nome, b.nome) });
+                            atualizarPill(pill);
+                            return el('tr', {},
+                                el('td', { class: 'col-nome' }, b.nome),
+                                el('td', { class: 'mono' }, b.ip),
+                                el('td', { class: 'mono' }, String(b.porta)),
+                                el('td', {}, b.padrao === 'completo' ? 'Número completo' : '6 dígitos'),
+                                el('td', {}, pill),
+                                el('td', { class: 'col-acoes' }, el('div', { class: 'acoes' },
+                                    el('button', { type: 'button', class: 'btn btn-secundario btn-pequeno', onclick: () => abrirModalBalanca(iL, iB) }, 'Editar'),
+                                    el('button', { type: 'button', class: 'btn-icone', title: 'Subir', disabled: iB === 0 ? '' : null, onclick: () => moverBalanca(iL, iB, -1) }, '▲'),
+                                    el('button', { type: 'button', class: 'btn-icone', title: 'Descer', disabled: iB === local.balancas.length - 1 ? '' : null, onclick: () => moverBalanca(iL, iB, 1) }, '▼'),
+                                    el('button', { type: 'button', class: 'btn btn-excluir btn-pequeno', onclick: () => excluirBalanca(iL, iB) }, 'Excluir'),
+                                )),
+                            );
+                        })),
+                    ));
+                }
+
+                return el('section', { class: 'bloco-local' }, cabecalho, corpo);
+            }));
+        }
+
+        // ---------- Modais ----------
+
+        function abrirModal(id) {
+            fecharModais();
+            document.getElementById(id).hidden = false;
+        }
+
+        function fecharModais() {
+            document.querySelectorAll('.modal-fundo').forEach(m => { m.hidden = true; });
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') fecharModais();
+        });
+
+        // Modal de balança: nova (sem índices), nova em um local (iL) ou edição (iL, iB)
+        function abrirModalBalanca(iL = null, iB = null) {
+            edicaoBalanca = iB === null ? null : { local: iL, balanca: iB };
+            const b = iB === null ? null : config.locais[iL].balancas[iB];
+
+            document.getElementById('modal-balanca-titulo').textContent = b ? 'Editar balança' : 'Nova balança';
+
+            const select = document.getElementById('campo-local');
+            select.replaceChildren(
+                ...config.locais.map((l, i) => el('option', { value: String(i) }, l.nome)),
+                el('option', { value: NOVO_LOCAL }, '+ Novo local...'),
+            );
+            select.value = iL !== null ? String(iL) : (config.locais.length ? '0' : NOVO_LOCAL);
+
+            document.getElementById('campo-novo-local').value = '';
+            document.getElementById('campo-novo-titulo').value = '';
+            document.getElementById('campo-nome').value = b ? b.nome : '';
+            document.getElementById('campo-ip').value = b ? b.ip : '';
+            document.getElementById('campo-porta').value = b ? b.porta : '';
+            document.getElementById('campo-padrao').value = b ? b.padrao : '6_digitos';
+            document.getElementById('resultado-teste').hidden = true;
+            mostrarErros('erros-balanca', []);
+            alternarNovoLocal();
+
+            abrirModal('modal-balanca');
+            document.getElementById(select.value === NOVO_LOCAL ? 'campo-novo-local' : 'campo-nome').focus();
+        }
+
+        function alternarNovoLocal() {
+            const novo = document.getElementById('campo-local').value === NOVO_LOCAL;
+            document.getElementById('grupo-novo-local').hidden = !novo;
+        }
+
+        document.getElementById('campo-local').addEventListener('change', alternarNovoLocal);
+
+        function lerCamposBalanca() {
+            return {
+                nome: document.getElementById('campo-nome').value.trim(),
+                ip: document.getElementById('campo-ip').value.trim(),
+                porta: Number(document.getElementById('campo-porta').value),
+                padrao: document.getElementById('campo-padrao').value,
+            };
+        }
+
+        document.getElementById('form-balanca').addEventListener('submit', async e => {
+            e.preventDefault();
+            const balanca = lerCamposBalanca();
+            const destino = document.getElementById('campo-local').value;
+
+            const erros = [];
+            if (destino === NOVO_LOCAL && !document.getElementById('campo-novo-local').value.trim()) {
+                erros.push('Informe o nome do novo local.');
+            }
+            if (!balanca.nome) erros.push('Informe o nome da balança.');
+            if (!balanca.ip) erros.push('Informe o IP.');
+            if (!Number.isInteger(balanca.porta) || balanca.porta < 1 || balanca.porta > 65535) {
+                erros.push('Informe uma porta de 1 a 65535.');
+            }
+            if (erros.length) return mostrarErros('erros-balanca', erros);
+
+            const nova = copiar(config);
+            let iDestino;
+            if (destino === NOVO_LOCAL) {
+                nova.locais.push({
+                    nome: document.getElementById('campo-novo-local').value.trim(),
+                    titulo: document.getElementById('campo-novo-titulo').value.trim(),
+                    balancas: [],
+                });
+                iDestino = nova.locais.length - 1;
+            } else {
+                iDestino = Number(destino);
+            }
+
+            if (edicaoBalanca && edicaoBalanca.local === iDestino) {
+                // Mesmo local: substitui mantendo a posição
+                nova.locais[iDestino].balancas[edicaoBalanca.balanca] = balanca;
+            } else {
+                if (edicaoBalanca) {
+                    nova.locais[edicaoBalanca.local].balancas.splice(edicaoBalanca.balanca, 1);
+                }
+                nova.locais[iDestino].balancas.push(balanca);
+            }
+
+            const botao = document.getElementById('botao-salvar-balanca');
+            botao.disabled = true;
+            const errosServidor = await salvar(nova, `Balança "${balanca.nome}" salva. O monitor já foi atualizado.`);
+            botao.disabled = false;
+
+            if (errosServidor.length) mostrarErros('erros-balanca', errosServidor);
+            else fecharModais();
+        });
+
+        async function testarConexao() {
+            const { ip, porta, padrao } = lerCamposBalanca();
+            const resultado = document.getElementById('resultado-teste');
+            const botao = document.getElementById('botao-testar');
+
+            resultado.hidden = false;
+            resultado.className = 'resultado-teste';
+            resultado.textContent = `Conectando em ${ip}:${porta}...`;
+            botao.disabled = true;
+
+            try {
+                const resposta = await fetch('/api/admin/testar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip, porta, padrao }),
+                });
+                const dados = await resposta.json();
+
+                if (dados.ok) {
+                    resultado.className = 'resultado-teste resultado-ok';
+                    resultado.replaceChildren(
+                        el('strong', {}, `✔ Conectou e leu: ${dados.peso}`),
+                        el('span', {}, ` (${dados.tempo_ms} ms)`),
+                        el('code', {}, `Recebido: ${dados.bruto}`),
+                    );
+                } else {
+                    resultado.className = 'resultado-teste resultado-erro';
+                    resultado.textContent = `✖ ${dados.erro}`;
+                }
+            } catch (err) {
+                resultado.className = 'resultado-teste resultado-erro';
+                resultado.textContent = '✖ Não foi possível falar com o servidor.';
+            } finally {
+                botao.disabled = false;
+            }
+        }
+
+        // Modal de local: novo (sem índice) ou edição (iL)
+        function abrirModalLocal(iL = null) {
+            edicaoLocal = iL;
+            const local = iL === null ? null : config.locais[iL];
+
+            document.getElementById('modal-local-titulo').textContent = local ? 'Editar local' : 'Novo local';
+            document.getElementById('campo-local-nome').value = local ? local.nome : '';
+            document.getElementById('campo-local-titulo').value = local ? local.titulo : '';
+            mostrarErros('erros-local', []);
+
+            abrirModal('modal-local');
+            document.getElementById('campo-local-nome').focus();
+        }
+
+        document.getElementById('form-local').addEventListener('submit', async e => {
+            e.preventDefault();
+            const nome = document.getElementById('campo-local-nome').value.trim();
+            const titulo = document.getElementById('campo-local-titulo').value.trim();
+            if (!nome) return mostrarErros('erros-local', ['Informe o nome do local.']);
+
+            const nova = copiar(config);
+            if (edicaoLocal === null) {
+                nova.locais.push({ nome, titulo, balancas: [] });
+            } else {
+                nova.locais[edicaoLocal].nome = nome;
+                nova.locais[edicaoLocal].titulo = titulo;
+            }
+
+            const botao = document.getElementById('botao-salvar-local');
+            botao.disabled = true;
+            const erros = await salvar(nova, `Local "${nome}" salvo.`);
+            botao.disabled = false;
+
+            if (erros.length) mostrarErros('erros-local', erros);
+            else fecharModais();
+        });
+
+        // ---------- Exclusão e ordenação ----------
+
+        function confirmar(texto) {
+            return new Promise(resolve => {
+                document.getElementById('texto-confirmar').textContent = texto;
+                abrirModal('modal-confirmar');
+                const responder = valor => { fecharModais(); resolve(valor); };
+                document.getElementById('botao-confirmar-sim').onclick = () => responder(true);
+                document.getElementById('botao-confirmar-nao').onclick = () => responder(false);
+            });
+        }
+
+        async function salvarOuAvisar(nova, mensagem) {
+            const erros = await salvar(nova, mensagem);
+            if (erros.length) alert(erros.join('\n'));
+        }
+
+        async function excluirBalanca(iL, iB) {
+            const local = config.locais[iL];
+            const b = local.balancas[iB];
+            if (!await confirmar(`Excluir a balança "${b.nome}" (${b.ip}:${b.porta}) de ${local.nome}? Ela sai do monitor na hora.`)) return;
+
+            const nova = copiar(config);
+            nova.locais[iL].balancas.splice(iB, 1);
+            await salvarOuAvisar(nova, `Balança "${b.nome}" excluída.`);
+        }
+
+        async function excluirLocal(iL) {
+            const local = config.locais[iL];
+            const qtd = local.balancas.length;
+            let texto = `Excluir o local "${local.nome}"?`;
+            if (qtd === 1) texto = `Excluir o local "${local.nome}" e a balança dele? Ela sai do monitor na hora.`;
+            if (qtd > 1) texto = `Excluir o local "${local.nome}" e as ${qtd} balanças dele? Elas saem do monitor na hora.`;
+            if (!await confirmar(texto)) return;
+
+            const nova = copiar(config);
+            nova.locais.splice(iL, 1);
+            await salvarOuAvisar(nova, `Local "${local.nome}" excluído.`);
+        }
+
+        async function moverLocal(iL, direcao) {
+            const nova = copiar(config);
+            const [item] = nova.locais.splice(iL, 1);
+            nova.locais.splice(iL + direcao, 0, item);
+            await salvarOuAvisar(nova, 'Ordem dos locais atualizada.');
+        }
+
+        async function moverBalanca(iL, iB, direcao) {
+            const nova = copiar(config);
+            const balancas = nova.locais[iL].balancas;
+            const [item] = balancas.splice(iB, 1);
+            balancas.splice(iB + direcao, 0, item);
+            await salvarOuAvisar(nova, 'Ordem das balanças atualizada.');
+        }
+
+        // ---------- Início ----------
+
+        carregar().catch(() => {
+            document.getElementById('resumo-cadastro').textContent =
+                'Não foi possível carregar a configuração. Verifique se o monitor está rodando.';
+        });
+        atualizarStatus();
+        setInterval(atualizarStatus, 3000);
+    </script>
+</body>
+
+</html>

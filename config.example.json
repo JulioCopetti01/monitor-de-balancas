@@ -1,0 +1,35 @@
+{
+  "aparencia": {
+    "empresa": "Minha Empresa",
+    "subtitulo": "Centro de Operações",
+    "titulo": "Monitor de Balanças",
+    "logo": "logo.png",
+    "cor_primaria": "#2563eb",
+    "cor_destaque": "#38bdf8",
+    "cor_escura": "#1e293b"
+  },
+  "servidor": {
+    "host": "0.0.0.0",
+    "porta": 8080,
+    "senha_admin": ""
+  },
+  "locais": [
+    {
+      "nome": "Simulador",
+      "titulo": "Teste local",
+      "balancas": [
+        { "nome": "Balança 1", "ip": "127.0.0.1", "porta": 9000, "padrao": "6_digitos" },
+        { "nome": "Balança 2", "ip": "127.0.0.1", "porta": 9001, "padrao": "6_digitos" }
+      ]
+    },
+    {
+      "nome": "Unidade Exemplo",
+      "titulo": "Região Norte",
+      "balancas": [
+        { "nome": "Rede interna", "ip": "192.168.1.50", "porta": 9000, "padrao": "6_digitos" },
+        { "nome": "Link principal", "ip": "192.168.1.51", "porta": 9000, "padrao": "6_digitos" },
+        { "nome": "Link backup", "ip": "192.168.1.52", "porta": 9000, "padrao": "6_digitos" }
+      ]
+    }
+  ]
+}

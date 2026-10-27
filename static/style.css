@@ -1,0 +1,447 @@
+/* ======================================================
+   IDENTIDADE VISUAL
+   As cores da marca abaixo são só o padrão: as páginas as substituem
+   pelas definidas em "aparencia" no config.json.
+   ====================================================== */
+:root {
+    /* Marca */
+    --marca-primaria: #2563eb;          /* botões e destaques */
+    --marca-primaria-escura: #1c4ab0;
+    --marca-primaria-suave: #dee8fc;
+    --marca-destaque: #38bdf8;          /* faixa e títulos dos locais */
+    --marca-escura: #1e293b;            /* fundo do rótulo de cada local */
+
+    /* Base */
+    --bg-color: #f8f9fa;
+    --card-bg: #ffffff;
+    --header-bg: #ffffff;
+    --text-main: #231f20;
+    --text-muted: #6c757d;
+    --border-color: rgba(35, 31, 32, 0.1);
+
+    /* Status (fixos, independentes da marca) */
+    --online-color: #2e7d32;
+    --online-texto: #1b5e20;
+    --online-fundo: #e8f5e9;
+
+    --offline-color: #c62828;
+    --offline-texto: #9b1c1c;
+    --offline-fundo: #fde8e7;
+
+    --atrasado-color: #e09100;
+    --atrasado-texto: #8a5300;
+    --atrasado-fundo: #fff3d6;
+}
+
+/* ======================================================
+   ESTILOS BASE E ESTRUTURA
+   ====================================================== */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Modo TV: tudo cabe em uma tela, sem scroll. A quantidade de colunas,
+   linhas e o tamanho das fontes são calculados em ajustarGrade() (JS). */
+html, body {
+    height: 100%;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ======================================================
+   CABEÇALHO
+   ====================================================== */
+.cabecalho {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 20px;
+    background-color: var(--header-bg);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    position: relative;
+    z-index: 2;
+}
+
+.logo {
+    height: 44px;
+    width: auto;
+    display: block;
+}
+
+/* Nome da empresa, usado quando não há logo */
+.logo-texto {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--marca-escura);
+    white-space: nowrap;
+}
+
+.titulo {
+    flex: 1;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text-main);
+    padding-left: 20px;
+    border-left: 2px solid var(--border-color);
+}
+
+.titulo small {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--marca-primaria);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.resumo {
+    display: flex;
+    gap: 8px;
+}
+
+.resumo-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.resumo-item strong {
+    font-size: 1.2rem;
+}
+
+.resumo-online { background-color: var(--online-fundo); color: var(--online-texto); }
+.resumo-offline { background-color: var(--offline-fundo); color: var(--offline-texto); }
+.resumo-atrasado { background-color: var(--atrasado-fundo); color: var(--atrasado-texto); }
+
+.relogio {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    min-width: 110px;
+}
+
+.relogio-hora {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.relogio-data {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Faixa com as cores da marca abaixo do cabeçalho */
+.faixa-marca {
+    flex-shrink: 0;
+    height: 6px;
+    background: repeating-linear-gradient(
+        90deg,
+        var(--marca-destaque) 0 120px,
+        var(--marca-escura) 120px 240px
+    );
+}
+
+.container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+}
+
+/* Uma linha por local: rótulo do local + cards das balanças */
+.grid-balancas {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    gap: 10px;
+
+    /* Valores padrão; sobrescritos pelo JS conforme o tamanho da tela */
+    --colunas-cards: 4;
+    --largura-rotulo: 200px;
+    --fonte-local: 1.1rem;
+    --fonte-tipo: 1rem;
+    --fonte-ip: 0.85rem;
+    --fonte-peso: 2.5rem;
+    --fonte-hora: 0.75rem;
+}
+
+.linha-local {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: var(--largura-rotulo) repeat(var(--colunas-cards), minmax(0, 1fr));
+    gap: 10px;
+}
+
+/* Rótulo do local na cor escura da marca; a borda indica a situação geral */
+.rotulo-local {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background-color: var(--marca-escura);
+    color: #ffffff;
+    border-left: 8px solid var(--text-muted);
+    overflow: hidden;
+}
+
+.titulo-local {
+    margin-bottom: -4px;
+    font-size: calc(var(--fonte-local) * 0.62);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--marca-destaque);
+    line-height: 1.15;
+}
+
+.titulo-local[hidden] {
+    display: none;
+}
+
+.nome-local {
+    font-size: var(--fonte-local);
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.contagem-local {
+    align-self: flex-start;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: calc(var(--fonte-local) * 0.7);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.local-ok .rotulo-local { border-left-color: var(--online-color); }
+.local-ok .contagem-local { background-color: var(--online-color); color: #ffffff; }
+
+.local-parcial .rotulo-local { border-left-color: var(--atrasado-color); }
+.local-parcial .contagem-local { background-color: var(--atrasado-color); color: #ffffff; }
+
+.local-falha .rotulo-local { border-left-color: var(--offline-color); }
+.local-falha .contagem-local { background-color: var(--offline-color); color: #ffffff; }
+
+/* Telas estreitas (celular): volta para lista com scroll */
+@media (max-width: 700px) {
+    body {
+        overflow: auto;
+        height: auto;
+    }
+
+    .cabecalho {
+        flex-wrap: wrap;
+    }
+
+    .titulo {
+        font-size: 1.1rem;
+    }
+
+    .relogio {
+        display: none;
+    }
+
+    .grid-balancas {
+        grid-template-rows: none !important;
+    }
+
+    .linha-local {
+        grid-template-columns: 1fr;
+    }
+
+    .card-balanca {
+        min-height: 150px;
+    }
+}
+
+/* ======================================================
+   CARDS DAS BALANÇAS
+   ====================================================== */
+.card-balanca {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-top: 6px solid var(--text-muted);
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.card-balanca.status-online {
+    border-top-color: var(--online-color);
+}
+
+.card-balanca.status-offline {
+    border-color: var(--offline-color);
+    border-top-color: var(--offline-color);
+    background-color: var(--offline-fundo);
+}
+
+.card-balanca.status-atrasado {
+    border-color: var(--atrasado-color);
+    border-top-color: var(--atrasado-color);
+    background-color: var(--atrasado-fundo);
+}
+
+/* Cabeçalho do Card */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+/* Nome da balança: Entrada, Saída, Backup... */
+.tipo {
+    font-weight: 700;
+    font-size: var(--fonte-tipo);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+}
+
+.ip {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: var(--fonte-ip);
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: calc(var(--fonte-tipo) * 0.7);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+}
+
+.status-online .status-badge { background-color: var(--online-fundo); color: var(--online-texto); }
+.status-offline .status-badge { background-color: var(--offline-color); color: #ffffff; }
+.status-atrasado .status-badge { background-color: var(--atrasado-color); color: #ffffff; }
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.status-online .status-dot {
+    background-color: var(--online-color);
+    box-shadow: 0 0 6px var(--online-color);
+}
+
+/* Exibição do Peso */
+.peso-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.peso {
+    font-size: var(--fonte-peso);
+    white-space: nowrap;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -1px;
+    color: var(--text-main);
+}
+
+.status-offline .peso {
+    color: var(--offline-texto);
+    opacity: 0.45;
+}
+
+.status-atrasado .peso {
+    color: var(--text-muted);
+}
+
+/* Rodapé do Card */
+.hora {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fonte-hora);
+    border-top: 1px solid var(--border-color);
+    padding-top: 3px;
+}
+
+/* ======================================================
+   AVISO DE MONITOR SEM COMUNICAÇÃO COM O SERVIDOR
+   ====================================================== */
+.aviso-sem-comunicacao {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 18px 20px;
+    background-color: var(--offline-color);
+    color: #ffffff;
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
+    animation: piscar-aviso 1.2s ease-in-out infinite;
+}
+
+.aviso-tempo {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+body.sem-comunicacao .aviso-sem-comunicacao {
+    display: block;
+}
+
+/* Cards esmaecidos: o último estado conhecido não é confiável */
+body.sem-comunicacao .card-balanca {
+    opacity: 0.35;
+    filter: grayscale(1);
+}
+
+@keyframes piscar-aviso {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
